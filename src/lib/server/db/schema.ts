@@ -2,14 +2,14 @@ import { mysqlTable, text, int, boolean, varchar } from 'drizzle-orm/mysql-core'
 import { aliasedTable } from 'drizzle-orm';
 
 export const users = mysqlTable('user', {
-	id: int().primaryKey().notNull(), // VATSIM CID
+	id: int().primaryKey().notNull(), // vNERCAP PID
+	discordId: varchar({ length: 32 }), // Discord user ID
 	firstName: text().notNull(),
 	lastName: text().notNull(),
 	email: text().notNull(),
 	role: int().notNull(),
 	roleOverride: int().notNull(),
-	isVisitor: boolean().notNull(),
-	rating: int().notNull(),
+	rank: text(), // vNERCAP rank (e.g. "C/2Lt")
 	mentorAvailability: text(),
 	allowedSessionTypes: text(),
 	bookableSessionTypes: text(),

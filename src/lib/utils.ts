@@ -20,7 +20,7 @@ export function roleString(role: number): string {
 	} else if (role >= ROLE_STUDENT) {
 		return 'Student';
 	} else {
-		return 'VATSIM Member';
+		return 'Member';
 	}
 }
 

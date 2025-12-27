@@ -1,44 +1,39 @@
-import { serverConfig } from '$lib/config/server';
 import { ROLE_DEVELOPER, ROLE_MENTOR, ROLE_STAFF, ROLE_STUDENT } from '$lib/utils';
 
-// arbitrary json, structure irrelevant
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function determineHighestRole(vatusa_info: any): number {
-	let highest_role = 0;
+// vNERCAP staff info structure
+export interface VNERCAPStaff {
+	permAdmin: number;
+	permEvents: number;
+	permWeb: number;
+	permTraining: number;
+}
 
-	// If they're a home controller, give them student perms
-	if (vatusa_info.data.facility == serverConfig.facility.id) {
-		if (ROLE_STUDENT > highest_role) {
-			highest_role = ROLE_STUDENT;
-		}
+/**
+ * Determines the highest role for a user based on vNERCAP staff permissions.
+ * Role mapping:
+ * - permWeb → ROLE_DEVELOPER (40)
+ * - permAdmin → ROLE_STAFF (30)
+ * - permTraining → ROLE_MENTOR (20)
+ * - Registered user (no staff perms) → ROLE_STUDENT (10)
+ */
+export function determineHighestRole(staffInfo: VNERCAPStaff | null): number {
+	// If not staff, they're a student
+	if (!staffInfo) {
+		return ROLE_STUDENT;
 	}
 
-	// If they're a visiting controller, give them student perms
-	for (const visiting_facility of vatusa_info.data.visiting_facilities) {
-		if (visiting_facility.facility == serverConfig.facility.id && ROLE_STUDENT > highest_role) {
-			highest_role = ROLE_STUDENT;
-		}
+	let highest_role = ROLE_STUDENT;
+
+	// Check permissions in order of priority (highest first)
+	if (staffInfo.permWeb) {
+		highest_role = Math.max(highest_role, ROLE_DEVELOPER);
+	}
+	if (staffInfo.permAdmin) {
+		highest_role = Math.max(highest_role, ROLE_STAFF);
+	}
+	if (staffInfo.permTraining) {
+		highest_role = Math.max(highest_role, ROLE_MENTOR);
 	}
 
-	// Assign staff roles
-	// WM: 							ROLE_DEVELOPER
-	// ATM, DATM, TA: 	ROLE_STAFF
-	// INS, MTR: 				ROLE_MENTOR
-	for (const role of vatusa_info.data.roles) {
-		if (role.facility == serverConfig.facility.id) {
-			let this_role = 0;
-			if (role.role == 'WM') {
-				this_role = ROLE_DEVELOPER;
-			} else if (role.role == 'ATM' || role.role == 'DATM' || role.role == 'TA') {
-				this_role = ROLE_STAFF;
-			} else if (role.role == 'INS' || role.role == 'MTR') {
-				this_role = ROLE_MENTOR;
-			}
-
-			if (this_role > highest_role) {
-				highest_role = this_role;
-			}
-		}
-	}
 	return highest_role;
 }

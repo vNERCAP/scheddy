@@ -9,7 +9,7 @@
 </script>
 
 <p class="ml-1">
-	Mentors and instructors are added automatically by their VATUSA role. You can also
+	Mentors and instructors are added automatically by their vNERCAP role. You can also
 	<a class="text-blue-500 hover:text-blue-600 transition font-semibold" href="/dash/users"
 		>override a user's role &rarr;</a
 	>

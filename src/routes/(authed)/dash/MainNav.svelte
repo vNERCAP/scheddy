@@ -3,6 +3,7 @@
 	import CalendarClockIcon from '@lucide/svelte/icons/calendar-clock';
 	import CalendarIcon from '@lucide/svelte/icons/calendar';
 	import CalendarPlusIcon from '@lucide/svelte/icons/calendar-plus';
+	import DownloadIcon from '@lucide/svelte/icons/download';
 	import GraduationCapIcon from '@lucide/svelte/icons/graduation-cap';
 	import LayoutGridIcon from '@lucide/svelte/icons/layout-grid';
 	import LibraryIcon from '@lucide/svelte/icons/library';
@@ -85,6 +86,12 @@
 			icon: UsersIcon,
 			visible: role >= ROLE_STAFF,
 			children: [
+				{
+					url: '/dash/users/import',
+					title: 'Import from vNERCAP',
+					icon: DownloadIcon,
+					visible: role >= ROLE_STAFF
+				},
 				{
 					url: '/dash/users/set',
 					title: 'Add/Update Override',

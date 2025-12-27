@@ -41,7 +41,6 @@ export const actions: Actions = {
 			name: form.data.name,
 			length: form.data.length,
 			order: form.data.order,
-			rating: form.data.rating,
 			category: form.data.category,
 			bookable: form.data.bookable
 		});

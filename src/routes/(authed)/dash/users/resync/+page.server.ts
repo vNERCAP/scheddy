@@ -10,7 +10,7 @@ import { fail, setError, superValidate } from 'sveltekit-superforms';
 import { zod } from 'sveltekit-superforms/adapters';
 import { syncSchema } from './syncSchema';
 import { serverConfig } from '$lib/config/server';
-import { determineHighestRole } from '$lib/helpers/auth';
+import { determineHighestRole, type VNERCAPStaff } from '$lib/helpers/auth';
 
 export const load: PageServerLoad = async ({ cookies }) => {
 	const { user } = (await loadUserData(cookies))!;
@@ -50,24 +50,23 @@ export const actions: Actions = {
 			return fail(400, { form });
 		}
 
-		const vatusa_user_resp = await fetch(
-			`${serverConfig.auth.vatusa.base}/user/${form.data.id}?apikey=${serverConfig.auth.vatusa.key}`,
-			{
-				headers: {
-					Authorization: `Bearer ${serverConfig.auth.vatusa.key}`
-				}
-			}
+		// Fetch staff permissions from vNERCAP
+		const staff_resp = await fetch(
+			`${serverConfig.auth.vnercap.base}/api/staff/${form.data.id}`
 		);
 
-		if (!vatusa_user_resp.ok) {
-			setError(form, 'id', 'Failed to load user data from VATUSA.');
+		let staff_info: VNERCAPStaff | null = null;
+		if (staff_resp.ok) {
+			staff_info = await staff_resp.json();
+		} else if (staff_resp.status !== 404) {
+			// 404 is fine (not staff), but other errors should be reported
+			setError(form, 'id', 'Failed to load staff data from vNERCAP.');
 			return {
 				form
 			};
 		}
 
-		const vatusa_info = await vatusa_user_resp.json();
-		const highest_role = determineHighestRole(vatusa_info);
+		const highest_role = determineHighestRole(staff_info);
 
 		await db
 			.update(users)

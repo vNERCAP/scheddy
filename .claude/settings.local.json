@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(find:*)",
+      "Bash(npm run check:*)",
+      "Bash(npx svelte-kit sync)",
+      "Bash(npx svelte-check:*)",
+      "Bash(npm install:*)",
+      "Bash(copy c:Reposscheddy.env.example c:Reposscheddy.env)"
+    ]
+  }
+}

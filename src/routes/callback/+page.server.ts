@@ -3,9 +3,9 @@ import { db } from '$lib/server/db';
 import { userTokens, users } from '$lib/server/db/schema';
 import { nanoid } from 'nanoid';
 import { redirect } from '@sveltejs/kit';
-import { ROLE_DEVELOPER, ROLE_STAFF, ROLE_MENTOR, ROLE_STUDENT } from '$lib/utils';
+import { ROLE_STUDENT } from '$lib/utils';
 import { serverConfig } from '$lib/config/server';
-import { determineHighestRole } from '$lib/helpers/auth';
+import { determineHighestRole, type VNERCAPStaff } from '$lib/helpers/auth';
 
 export const load: PageServerLoad = async ({ cookies, url, fetch }) => {
 	if (url.searchParams.has('error')) {
@@ -26,131 +26,173 @@ export const load: PageServerLoad = async ({ cookies, url, fetch }) => {
 		return {
 			success: false,
 			error_code: 'no_auth_code',
-			error_description: "No auth code was present in VATSIM's response.",
-			error_message: "No auth code was present in VATSIM's response."
+			error_description: "No auth code was present in Discord's response.",
+			error_message: "No auth code was present in Discord's response."
 		};
 	}
 
-	const request_body = new URLSearchParams();
-	request_body.set('grant_type', 'authorization_code');
-	request_body.set('client_id', serverConfig.auth.vatsim.client_id_public);
-	request_body.set('client_secret', serverConfig.auth.vatsim.client_secret);
-	request_body.set('redirect_uri', serverConfig.site.base_public + 'callback');
-	request_body.set('code', code);
-	request_body.set('scope', '');
+	// Step 1: Exchange code for Discord access token
+	const token_request_body = new URLSearchParams();
+	token_request_body.set('grant_type', 'authorization_code');
+	token_request_body.set('client_id', serverConfig.auth.discord.client_id_public);
+	token_request_body.set('client_secret', serverConfig.auth.discord.client_secret);
+	token_request_body.set('redirect_uri', serverConfig.site.base_public + 'callback');
+	token_request_body.set('code', code);
 
-	const token_response = await fetch(`${serverConfig.auth.vatsim.base_public}/oauth/token`, {
+	const token_response = await fetch('https://discord.com/api/oauth2/token', {
 		method: 'POST',
 		headers: {
 			'Content-Type': 'application/x-www-form-urlencoded'
 		},
-		body: request_body.toString()
+		body: token_request_body.toString()
 	});
 
-	const resp = await token_response.json();
+	const token_resp = await token_response.json();
 
 	if (!token_response.ok) {
 		return {
 			success: false,
-			error_code: resp.error,
-			error_description: resp.error_description,
-			error_message: resp.hint
+			error_code: token_resp.error || 'token_exchange_failed',
+			error_description: token_resp.error_description || 'Failed to exchange code for token.',
+			error_message: token_resp.error_description || 'Failed to exchange code for token.'
 		};
 	}
 
-	const token = resp.access_token;
-	// we got an access token
-	// get the CID now
+	const discord_token = token_resp.access_token;
 
-	const user_data_resp = await fetch(`${serverConfig.auth.vatsim.base_public}/api/user`, {
+	// Step 2: Fetch Discord user info
+	const discord_user_resp = await fetch('https://discord.com/api/users/@me', {
 		headers: {
-			Accept: 'application/json',
-			Authorization: `Bearer ${token}`
+			Authorization: `Bearer ${discord_token}`
 		}
 	});
 
-	if (!user_data_resp.ok) {
+	if (!discord_user_resp.ok) {
 		return {
 			success: false,
-			error_code: 'user_data_failed',
-			error_description: 'Failed to load user data from VATSIM.',
-			error_message: 'Failed to load user data from VATSIM.'
+			error_code: 'discord_user_failed',
+			error_description: 'Failed to load user data from Discord.',
+			error_message: 'Failed to load user data from Discord.'
 		};
 	}
 
-	const user_data_str = await user_data_resp.text();
-	const user_data = JSON.parse(user_data_str);
+	const discord_user = await discord_user_resp.json();
+	const discord_id: string = discord_user.id;
+	// Use Discord email if available, otherwise use a placeholder
+	const discord_email: string = discord_user.email || `${discord_id}@discord.user`;
 
-	let cid = user_data.data.cid;
-	// DEVELOPMENT: Overwrites the CID for the data request with one in the .env file
-	if (serverConfig.site.mode === 'dev') {
-		cid = serverConfig.site.dev_cid;
-	}
+	// Step 3: Look up user in vNERCAP by Discord ID
+	let pid: number;
+	let vnercap_user: {
+		pid: number;
+		fname: string;
+		lname: string;
+		rank: string | null;
+		discordId: string;
+	};
 
-	// finally, load the division data from VATUSA
-	const vatusa_user_resp = await fetch(
-		`${serverConfig.auth.vatusa.base}/user/${cid}?apikey=${serverConfig.auth.vatusa.key}`,
-		{
-			headers: {
-				Authorization: `Bearer ${serverConfig.auth.vatusa.key}`
-			}
+	// DEVELOPMENT: Override with test PID from .env
+	if (serverConfig.site.mode === 'dev' && serverConfig.site.dev_pid) {
+		pid = parseInt(serverConfig.site.dev_pid);
+		// In dev mode, fetch user by PID instead
+		const dev_user_resp = await fetch(
+			`${serverConfig.auth.vnercap.base}/api/users/${pid}`
+		);
+		if (!dev_user_resp.ok) {
+			return {
+				success: false,
+				error_code: 'dev_user_not_found',
+				error_description: `Dev mode: User with PID ${pid} not found in vNERCAP.`,
+				error_message: `Dev mode: User with PID ${pid} not found in vNERCAP.`
+			};
 		}
-	);
+		vnercap_user = await dev_user_resp.json();
+	} else {
+		// Production: Look up by Discord ID
+		console.log(`[Auth] Looking up user by Discord ID: ${discord_id}`);
+		const vnercap_user_resp = await fetch(
+			`${serverConfig.auth.vnercap.base}/api/users/discord/${discord_id}`
+		);
+		console.log(`[Auth] vNERCAP response status: ${vnercap_user_resp.status}`);
 
-	if (!vatusa_user_resp.ok) {
-		return {
-			success: false,
-			error_code: 'vatusa_data_failed',
-			error_description: 'Failed to load user data from VATUSA.',
-			error_message: 'Failed to load user data from VATUSA.'
-		};
+		if (!vnercap_user_resp.ok) {
+			const errorText = await vnercap_user_resp.text();
+			console.log(`[Auth] vNERCAP error response: ${errorText}`);
+			if (vnercap_user_resp.status === 404) {
+				return {
+					success: false,
+					error_code: 'not_registered',
+					error_description: `Your Discord account (${discord_id}) is not registered with ${serverConfig.facility.name_public}. Please register first.`,
+					error_message: `Your Discord account (${discord_id}) is not registered with ${serverConfig.facility.name_public}. Please register first.`
+				};
+			}
+			return {
+				success: false,
+				error_code: 'vnercap_user_failed',
+				error_description: 'Failed to load user data from vNERCAP.',
+				error_message: 'Failed to load user data from vNERCAP.'
+			};
+		}
+
+		vnercap_user = await vnercap_user_resp.json();
+		pid = vnercap_user.pid;
 	}
 
-	const vatusa_info = await vatusa_user_resp.json();
+	// Step 4: Check if user is staff (to determine role)
+	let staff_info: VNERCAPStaff | null = null;
+	const staff_resp = await fetch(`${serverConfig.auth.vnercap.base}/api/staff/${pid}`);
 
-	const highest_role = determineHighestRole(vatusa_info);
+	if (staff_resp.ok) {
+		staff_info = await staff_resp.json();
+	}
+	// 404 means not staff, which is fine - they'll be a student
 
-	// User must be at least a ROLE_STUDENT to log in
+	// Step 5: Determine highest role
+	const highest_role = determineHighestRole(staff_info);
+
+	// User must be at least a ROLE_STUDENT to log in (they should be if they exist in vNERCAP)
 	if (highest_role < ROLE_STUDENT) {
 		return {
 			success: false,
 			error_code: 'not_a_student',
-			error_description: `You do not appear to be a student or training staff member of the ${serverConfig.facility.name_public}. If you believe you are receiving this message in error, please contact your facility staff.`,
-			error_message: `You do not appear to be a student or training staff member of the ${serverConfig.facility.name_public}. If you believe you are receiving this message in error, please contact your facility staff.`
+			error_description: `You do not appear to be a member of ${serverConfig.facility.name_public}. If you believe you are receiving this message in error, please contact staff.`,
+			error_message: `You do not appear to be a member of ${serverConfig.facility.name_public}. If you believe you are receiving this message in error, please contact staff.`
 		};
 	}
 
+	// Step 6: Create/update user in local database
 	await db
 		.insert(users)
 		.values({
-			id: cid,
-			firstName: vatusa_info.data.fname,
-			lastName: vatusa_info.data.lname,
-			email: vatusa_info.data.email,
+			id: pid,
+			discordId: discord_id,
+			firstName: vnercap_user.fname,
+			lastName: vnercap_user.lname,
+			email: discord_email,
 			role: highest_role,
 			roleOverride: 0,
-			isVisitor: vatusa_info.data.facility != serverConfig.facility.id,
-			rating: vatusa_info.data.rating,
+			rank: vnercap_user.rank,
 			timezone: 'America/New_York',
 			mentorAvailability: 'null',
 			allowedSessionTypes: 'null'
 		})
 		.onDuplicateKeyUpdate({
 			set: {
-				id: cid,
-				firstName: vatusa_info.data.fname,
-				lastName: vatusa_info.data.lname,
-				email: vatusa_info.data.email,
+				id: pid,
+				discordId: discord_id,
+				firstName: vnercap_user.fname,
+				lastName: vnercap_user.lname,
+				email: discord_email,
 				role: highest_role,
-				isVisitor: vatusa_info.data.facility != serverConfig.facility.id,
-				rating: vatusa_info.data.rating
+				rank: vnercap_user.rank
 			}
 		});
 
+	// Step 7: Create session token
 	const utoken = nanoid();
 	await db.insert(userTokens).values({
 		id: utoken,
-		user: cid
+		user: pid
 	});
 
 	cookies.set('scheddy_token', utoken, { path: '/', httpOnly: false });

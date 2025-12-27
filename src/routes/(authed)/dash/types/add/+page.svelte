@@ -6,8 +6,6 @@
 	import * as Form from '$lib/components/ui/form';
 	import { Input } from '$lib/components/ui/input';
 	import LoaderCircle from '@lucide/svelte/icons/loader-circle';
-	import { ratingIdDisplay, RATINGS } from '$lib/utils';
-	import * as Select from '$lib/components/ui/select';
 	import { Checkbox } from '$lib/components/ui/checkbox';
 
 	interface Props {
@@ -62,27 +60,6 @@
 				<Input {...props} type="number" bind:value={$formData.order} />
 			{/snippet}
 		</Form.Control>
-		<Form.FieldErrors />
-	</Form.Field>
-	<Form.Field {form} name="rating">
-		<Form.Control>
-			{#snippet children({ props })}
-				<Form.Label>Required Rating</Form.Label>
-				<Select.Root type="single" bind:value={$formData.rating} name={props.name}>
-					<Select.Trigger {...props}>
-						{$formData.rating ? ratingIdDisplay($formData.rating) : 'Select a required rating'}
-					</Select.Trigger>
-					<Select.Content>
-						{#each RATINGS as rating}
-							<Select.Item value={rating.id} label={ratingIdDisplay(rating.id)} />
-						{/each}
-					</Select.Content>
-				</Select.Root>
-			{/snippet}
-		</Form.Control>
-		<Form.Description>
-			Only users with this rating or higher will be able to book this session.
-		</Form.Description>
 		<Form.FieldErrors />
 	</Form.Field>
 	<Form.Field {form} name="bookable" class="mb-2">

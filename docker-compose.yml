@@ -1,15 +1,35 @@
 services:
   db:
-    image: mysql
+    image: mysql:8
     restart: always
     ports:
       - 3307:3306
     environment:
-      MYSQL_USER: ztl
-      MYSQL_PASSWORD: ztl
-      MYSQL_ROOT_PASSWORD: ztl2
+      MYSQL_USER: scheddy
+      MYSQL_PASSWORD: scheddy
+      MYSQL_ROOT_PASSWORD: root
       MYSQL_DATABASE: scheddy
     volumes:
-      - ztl-scheddy-data:/var/lib/mysql
+      - scheddy-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  app:
+    build: .
+    ports:
+      - 3001:3000
+    env_file:
+      - .env
+    environment:
+      # Override database URL to connect to the db service
+      SCHEDDY_DATABASE_URL: "mysql://scheddy:scheddy@db:3306/scheddy"
+      PUBLIC_SCHEDDY_SITE_BASE: "http://localhost:3001/"
+    depends_on:
+      db:
+        condition: service_healthy
+
 volumes:
-  ztl-scheddy-data:
+  scheddy-data:

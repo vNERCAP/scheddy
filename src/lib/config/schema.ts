@@ -5,12 +5,13 @@ export const baseConfig = {
 	facility: {
 		name_public: 'Your ARTCC',
 		id: 'ZXX',
-		mail_domain: 'zxxartcc.org'
+		mail_domain: 'zxxartcc.org',
+		discord_url_public: 'https://discord.gg/your-server'
 	},
 	site: {
 		base_public: 'http://localhost:5173',
 		mode: 'dev',
-		dev_cid: 'TO_BE_OVERRIDDEN'
+		dev_pid: 'TO_BE_OVERRIDDEN'
 	},
 	bookings: {
 		max_days_ahead: 14,
@@ -20,14 +21,12 @@ export const baseConfig = {
 		master_key: 'this must be overridden'
 	},
 	auth: {
-		vatsim: {
-			base_public: 'https://auth-dev.vatsim.net',
+		discord: {
 			client_id_public: 'your_client_id',
 			client_secret: 'secret'
 		},
-		vatusa: {
-			base: 'https://api.vatusa.net',
-			key: 'key'
+		vnercap: {
+			base: 'https://vnercap-api.sebpartof2.workers.dev'
 		}
 	},
 	smtp: {
@@ -39,10 +38,6 @@ export const baseConfig = {
 			pass: 'pwd'
 		},
 		from: 'Scheddy Test Server <sts@yourdomain.dev>'
-	},
-	metrics: {
-		dsn_public: 'https://ce463d975d42f1a39ec94cbf87405e46@sentry.coredoes.dev/2',
-		enable_failure_uploads: false
 	}
 };
 

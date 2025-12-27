@@ -2,7 +2,6 @@ import type { ColumnDef } from '@tanstack/table-core';
 import { renderComponent } from '$lib/components/ui/data-table';
 import DataTableAddButton from './DataTableAddButton.svelte';
 import DataTableActions from './DataTableActions.svelte';
-import { ratingIdDisplay } from '$lib/utils';
 
 export type TSType = {
 	id: string;
@@ -10,7 +9,6 @@ export type TSType = {
 	name: string;
 	order: number;
 	length: number;
-	rating: number;
 	bookable: boolean;
 };
 
@@ -30,13 +28,6 @@ export const stColumns: ColumnDef<TSType>[] = [
 	{
 		accessorKey: 'order',
 		header: 'Ordering'
-	},
-	{
-		accessorKey: 'rating',
-		header: 'Required Rating',
-		cell: ({ row }) => {
-			return ratingIdDisplay(row.original.rating);
-		}
 	},
 	{
 		accessorKey: 'bookable',

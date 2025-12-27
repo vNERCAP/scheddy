@@ -11,6 +11,9 @@ const config = {
 		adapter: adapter(),
 		version: {
 			name: process.env.npm_package_version
+		},
+		csrf: {
+			checkOrigin: false // TODO: Enable in production with matching PUBLIC_SCHEDDY_SITE_BASE
 		}
 	}
 };

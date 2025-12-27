@@ -13,11 +13,12 @@
 		</Card.Header>
 		<Card.Content>
 			<Button
-				href="{clientConfig.auth.vatsim
-					.base_public}/oauth/authorize?response_type=code&client_id={clientConfig.auth.vatsim
-					.client_id_public}&redirect_uri={clientConfig.site.base_public}callback"
+				href="https://discord.com/api/oauth2/authorize?response_type=code&client_id={clientConfig.auth.discord
+					.client_id_public}&redirect_uri={encodeURIComponent(
+					clientConfig.site.base_public + 'callback'
+				)}&scope=identify%20email"
 			>
-				Login with VATSIM
+				Login with Discord
 			</Button>
 		</Card.Content>
 		<Card.Footer class="text-sm text-muted-foreground justify-center">

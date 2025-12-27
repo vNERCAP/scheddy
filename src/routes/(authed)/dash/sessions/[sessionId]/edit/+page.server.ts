@@ -34,8 +34,8 @@ export const load: PageServerLoad = async ({ cookies, params }) => {
 
 	let sTypes: (typeof sessionTypes.$inferSelect)[];
 
-	// Bypass allowed types if Sr Staff or INS
-	if (roleOf(user) >= ROLE_STAFF || user.rating >= 8) {
+	// Bypass allowed types if Staff or higher
+	if (roleOf(user) >= ROLE_STAFF) {
 		sTypes = await db.select().from(sessionTypes);
 	} else {
 		const allowedTypes: string[] = user.allowedSessionTypes

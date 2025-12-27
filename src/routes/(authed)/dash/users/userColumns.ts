@@ -22,7 +22,7 @@ export const userColumns: ColumnDef<TUser>[] = [
 	},
 	{
 		id: 'role',
-		header: 'VATUSA Role',
+		header: 'vNERCAP Role',
 		cell: ({ row }) => {
 			return roleString(row.original.role);
 		}
