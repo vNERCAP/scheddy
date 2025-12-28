@@ -136,6 +136,7 @@ export const load: PageServerLoad = async ({ cookies, url, fetch }) => {
 
 		vnercap_user = await vnercap_user_resp.json();
 		pid = vnercap_user.pid;
+		console.log(`[Auth] Found vNERCAP user: PID=${pid}, name=${vnercap_user.fname} ${vnercap_user.lname}`);
 	}
 
 	// Step 4: Check if user is staff (to determine role)
@@ -144,11 +145,15 @@ export const load: PageServerLoad = async ({ cookies, url, fetch }) => {
 
 	if (staff_resp.ok) {
 		staff_info = await staff_resp.json();
+		console.log(`[Auth] Staff info found:`, JSON.stringify(staff_info));
+	} else {
+		console.log(`[Auth] Not a staff member (status ${staff_resp.status})`);
 	}
 	// 404 means not staff, which is fine - they'll be a student
 
 	// Step 5: Determine highest role
 	const highest_role = determineHighestRole(staff_info);
+	console.log(`[Auth] Determined role: ${highest_role}`);
 
 	// User must be at least a ROLE_STUDENT to log in (they should be if they exist in vNERCAP)
 	if (highest_role < ROLE_STUDENT) {
@@ -161,41 +166,61 @@ export const load: PageServerLoad = async ({ cookies, url, fetch }) => {
 	}
 
 	// Step 6: Create/update user in local database
-	await db
-		.insert(users)
-		.values({
-			id: pid,
-			discordId: discord_id,
-			firstName: vnercap_user.fname,
-			lastName: vnercap_user.lname,
-			email: discord_email,
-			role: highest_role,
-			roleOverride: 0,
-			rank: vnercap_user.rank,
-			timezone: 'America/New_York',
-			mentorAvailability: 'null',
-			allowedSessionTypes: 'null'
-		})
-		.onDuplicateKeyUpdate({
-			set: {
+	console.log(`[Auth] Inserting/updating user in database...`);
+	try {
+		await db
+			.insert(users)
+			.values({
 				id: pid,
 				discordId: discord_id,
 				firstName: vnercap_user.fname,
 				lastName: vnercap_user.lname,
 				email: discord_email,
 				role: highest_role,
-				rank: vnercap_user.rank
-			}
-		});
+				roleOverride: 0,
+				rank: vnercap_user.rank,
+				timezone: 'America/New_York',
+				mentorAvailability: 'null',
+				allowedSessionTypes: 'null'
+			})
+			.onDuplicateKeyUpdate({
+				set: {
+					id: pid,
+					discordId: discord_id,
+					firstName: vnercap_user.fname,
+					lastName: vnercap_user.lname,
+					email: discord_email,
+					role: highest_role,
+					rank: vnercap_user.rank
+				}
+			});
+		console.log(`[Auth] User database operation successful`);
+	} catch (err) {
+		console.error(`[Auth] User database error:`, err);
+		throw err;
+	}
 
 	// Step 7: Create session token
 	const utoken = nanoid();
-	await db.insert(userTokens).values({
-		id: utoken,
-		user: pid
-	});
+	console.log(`[Auth] Creating session token: ${utoken.substring(0, 8)}...`);
+	try {
+		await db.insert(userTokens).values({
+			id: utoken,
+			user: pid
+		});
+		console.log(`[Auth] Session token created successfully`);
+	} catch (err) {
+		console.error(`[Auth] Session token error:`, err);
+		throw err;
+	}
 
-	cookies.set('scheddy_token', utoken, { path: '/', httpOnly: false });
+	console.log(`[Auth] Setting cookie and redirecting to /schedule`);
+	cookies.set('scheddy_token', utoken, {
+		path: '/',
+		httpOnly: false,
+		secure: false, // Allow over HTTP in production
+		sameSite: 'lax'
+	});
 
 	redirect(307, '/schedule');
 };
